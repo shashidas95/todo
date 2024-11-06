@@ -73,11 +73,19 @@ pipeline {
                 build job: CONFIG_PROJECT_NAME, parameters: [string(name: 'IMAGE_TAG', value: IMAGE_TAG)]
             }
         }
+                stage("CLEANUP DOCKER CACHES AND IMAGES") {
+            steps {
+                script {
+                    // Remove all Docker images
+                    sh 'docker system prune -af --volumes'
+                }
+            }
+        }
     }
     
     post {
         success {
-            echo 'Pipeline completed successfully'
+            echo 'Pipeline completed successfully with cleanup'
         }
         failure {
             echo 'Pipeline failed'
