@@ -1,4 +1,4 @@
-# ## Installation ### docker login --username dockerhub --password-stdinooooo
+# ## Installation ### docker login --username dockerhub --password-stdinooooooooo
 
 Run the following command to clone the repository
 
