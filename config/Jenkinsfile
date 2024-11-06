@@ -43,9 +43,9 @@ pipeline {
                     sh "sed -i 's#image: ${frontendImageName}:.*#image: ${frontendImageName}:${IMAGE_TAG}#' ./k8s/frontend-deployment.yaml"
                     sh 'cat ./k8s/frontend-deployment.yaml'
 
-                     // Update docker-compose.yml with new IMAGE_TAG
-                    sh "sed -i 's#image: ${backendImageName}:.*#image: ${backendImageName}:${imageTag}#' ./docker-compose.yml"
-                    sh "sed -i 's#image: ${frontendImageName}:.*#image: ${frontendImageName}:${imageTag}#' ./docker-compose.yml"
+                    //  // Update docker-compose.yml with new IMAGE_TAG
+                    // sh "sed -i 's#image: ${backendImageName}:.*#image: ${backendImageName}:${imageTag}#' ./docker-compose.yml"
+                    // sh "sed -i 's#image: ${frontendImageName}:.*#image: ${frontendImageName}:${imageTag}#' ./docker-compose.yml"
 
 
                     // Configure Git for committing the changes
