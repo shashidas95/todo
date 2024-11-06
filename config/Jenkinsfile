@@ -6,7 +6,7 @@ pipeline {
     }
     
     environment {
-        GIT_REPO = "https://github.com/shashidas95/todo" 
+        GIT_REPO = "https://github.com/shashidas95/todo-config.git" 
         DOCKERHUB_USERNAME = "shashidas" // Docker Hub username
         IMAGE_BE = "todo-be" // Define backend image name
         IMAGE_FE = "todo-fe" // Define frontend image name
@@ -22,7 +22,7 @@ pipeline {
 
         stage("CHECKOUT GIT REPO") {
             steps {
-                git branch: 'phase1', url: "${GIT_REPO}"
+                git branch: 'main', url: "${GIT_REPO}"
             }
         }
 
@@ -52,7 +52,7 @@ pipeline {
 
                 // Push the changes
                 withCredentials([usernamePassword(credentialsId: 'githubuser', passwordVariable: 'pass', usernameVariable: 'uname')]) {
-                    sh 'git push https://$uname:$pass@github.com/shashidas95/todo.git phase1'
+                    sh 'git push https://$uname:$pass@github.com/shashidas95/todo-config.git main'
                 }
             }
         }
