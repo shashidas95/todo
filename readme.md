@@ -6,7 +6,7 @@ Run the following command to clone the repository
 git clone https://github.com/shashidas95/todo.git
 ```
 
-Go to `frontend` and `backend` directory to install packages
+Go to `frontend` and `backend` directory to install packages !!!
 
 ```
 cd frontend
