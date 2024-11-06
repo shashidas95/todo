@@ -30,6 +30,6 @@ spec:
     app: frontend
   ports:
     - protocol: TCP
-      port: 80 # Expose on port 80
+      port: 3000 # Expose on port 80
       targetPort: 3000 # Change to frontend container port
   type: LoadBalancer

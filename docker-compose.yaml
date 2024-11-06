@@ -1,22 +1,12 @@
 version: '3.8'
 
 services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - '3000:3000'
-    environment:
-      - NODE_ENV=production
-    container_name: frontend-app
-
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: shashidas/todo-be:${IMAGE_TAG}
     ports:
       - '8000:8000'
-    environment:
-      - NODE_ENV=production
-    container_name: backend-app
+
+  frontend:
+    image: shashidas/todo-fe:${IMAGE_TAG}
+    ports:
+      - '3000:3000'
