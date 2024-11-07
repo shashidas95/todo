@@ -35,12 +35,12 @@ pipeline {
                 script {
                     // Build backend image
                     dir('backend') {
-                        sh "docker build --no-cache -d -t ${DOCKERHUB_USERNAME}/${IMAGE_BE}:${IMAGE_TAG} -t ${DOCKERHUB_USERNAME}/${IMAGE_BE}:latest ."
+                        sh "docker build --no-cache  -t ${DOCKERHUB_USERNAME}/${IMAGE_BE}:${IMAGE_TAG} -t ${DOCKERHUB_USERNAME}/${IMAGE_BE}:latest ."
                     }
                     
                     // Build frontend image
                     dir('frontend') {
-                        sh "docker build --no-cache -d -t ${DOCKERHUB_USERNAME}/${IMAGE_FE}:${IMAGE_TAG} -t ${DOCKERHUB_USERNAME}/${IMAGE_FE}:latest ."
+                        sh "docker build --no-cache  -t ${DOCKERHUB_USERNAME}/${IMAGE_FE}:${IMAGE_TAG} -t ${DOCKERHUB_USERNAME}/${IMAGE_FE}:latest ."
                     }
                 }
             }
