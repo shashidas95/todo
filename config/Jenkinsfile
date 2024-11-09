@@ -1,15 +1,18 @@
 pipeline {
-    agent any 
+    agent any
 
-    environment {
-        DOCKERHUB_USERNAME = "shashidas"
-        GIT_REPO = "https://github.com/shashidas95/todo"
-        CONFIG_PROJECT_NAME = "todo-config"
-        IMAGE_TAG = new Date().format('yyyyMMdd-HHmm') 
-        IMAGE_BE = "todo-be"
-        IMAGE_FE = "todo-fe"
+    parameters {
+        string(name: 'IMAGE_TAG', description: 'Enter the image tag')
     }
-     
+    
+    environment {
+        GIT_REPO = "https://github.com/shashidas95/todo" 
+        DOCKERHUB_USERNAME = "shashidas" // Docker Hub username
+        IMAGE_BE = "todo-be" // Define backend image name
+        IMAGE_FE = "todo-fe" // Define frontend image name
+        CONFIG_PROJECT_NAME = "todo-config"
+    }
+
     stages {
         stage('CLEANUP WORKSPACE') {
             steps {
@@ -23,66 +26,41 @@ pipeline {
             }
         }
 
-        stage('Check Docker') {
-            steps {
-                sh 'echo $PATH'
-                sh 'docker --version'
-            }
-        }
-
-        stage("BUILD DOCKER IMAGES") {
+        stage("UPDATE K8S DEPLOYMENT FILES FOR BACKEND AND FRONTEND") {
             steps {
                 script {
-                    // Build backend image
-                    dir('backend') {
-                        sh "docker build --no-cache  -t ${DOCKERHUB_USERNAME}/${IMAGE_BE}:${IMAGE_TAG} -t ${DOCKERHUB_USERNAME}/${IMAGE_BE}:latest ."
-                    }
-                    
-                    // Build frontend image
-                    dir('frontend') {
-                        sh "docker build --no-cache  -t ${DOCKERHUB_USERNAME}/${IMAGE_FE}:${IMAGE_TAG} -t ${DOCKERHUB_USERNAME}/${IMAGE_FE}:latest ."
-                    }
+                    // Define image names using DOCKERHUB_USERNAME and IMAGE_BE/IMAGE_FE
+                    def backendImageName = "${DOCKERHUB_USERNAME}/${IMAGE_BE}"
+                    def frontendImageName = "${DOCKERHUB_USERNAME}/${IMAGE_FE}"
+
+                    // Update backend deployment file with new IMAGE_TAG
+                    sh 'cat ./k8s/backend-deployment.yaml'
+                    sh "sed -i 's#image: ${backendImageName}:.*#image: ${backendImageName}:${IMAGE_TAG}#' ./k8s/backend-deployment.yaml"
+                    sh 'cat ./k8s/backend-deployment.yaml'
+
+                    // Update frontend deployment file with new IMAGE_TAG
+                    sh 'cat ./k8s/frontend-deployment.yaml'
+                    sh "sed -i 's#image: ${frontendImageName}:.*#image: ${frontendImageName}:${IMAGE_TAG}#' ./k8s/frontend-deployment.yaml"
+                    sh 'cat ./k8s/frontend-deployment.yaml'
+
+                    // Configure Git for committing the changes
+                    sh 'git config --global user.email "shashidas95@gmail.com"'
+                    sh 'git config --global user.name "shashidas95"'
+                    sh 'git add ./k8s/backend-deployment.yaml ./k8s/frontend-deployment.yaml'
+                    sh "git commit -m 'Updated backend and frontend deployment files to ${IMAGE_TAG}'"
                 }
-            }
-        }
 
-        stage("PUSH DOCKER IMAGES TO DOCKERHUB") {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'PASSWORD', usernameVariable: 'USER_NAME')]) {
-                    sh 'echo ${PASSWORD} | docker login --username ${USER_NAME} --password-stdin'
-                    
-                    // Push backend image with both tags
-                    sh "docker push ${DOCKERHUB_USERNAME}/${IMAGE_BE}:${IMAGE_TAG}"
-                    sh "docker push ${DOCKERHUB_USERNAME}/${IMAGE_BE}:latest"
-                    
-                    // Push frontend image with both tags
-                    sh "docker push ${DOCKERHUB_USERNAME}/${IMAGE_FE}:${IMAGE_TAG}"
-                    sh "docker push ${DOCKERHUB_USERNAME}/${IMAGE_FE}:latest"
-
-                    sh 'docker logout'
-                }
-            }
-        }
-
-        stage("TRIGGERING THE CONFIG PIPELINE") {
-            steps {
-                // Trigger the config pipeline for backend and frontend
-                build job: CONFIG_PROJECT_NAME, parameters: [string(name: 'IMAGE_TAG', value: IMAGE_TAG)]
-            }
-        }
-                stage("CLEANUP DOCKER CACHES AND IMAGES") {
-            steps {
-                script {
-                    // Remove all Docker images
-                    sh 'docker system prune -af --volumes'
+                // Push the changes
+                withCredentials([usernamePassword(credentialsId: 'githubuser', passwordVariable: 'pass', usernameVariable: 'uname')]) {
+                    sh 'git push https://$uname:$pass@github.com/shashidas95/todo.git phase1'
                 }
             }
         }
     }
-    
+
     post {
         success {
-            echo 'Pipeline completed successfully with cleanup'
+            echo 'Pipeline completed successfully'
         }
         failure {
             echo 'Pipeline failed'
