@@ -1,22 +1,17 @@
 pipeline {
-    agent any
-
-    parameters {
-        string(name: 'IMAGE_TAG', description: 'Enter the image tag')
-    }
+    agent any 
 
     environment {
-        GIT_REPO = "https://github.com/shashidas95/todo-config.git"
-        DOCKERHUB_USERNAME = "shashidas" // Docker Hub username
+        DOCKERHUB_USERNAME = "shashidas"
+        GIT_REPO = "https://github.com/shashidas95/todo"
+        CONFIG_PROJECT_NAME = "todo-config"
+        IMAGE_TAG = new Date().format('yyyyMMdd-HHmm') 
         IMAGE_BE = "todo-be"
         IMAGE_FE = "todo-fe"
-        CONFIG_PROJECT_NAME = "todo-config"
-        GOOGLE_CHAT_WEBHOOK = credentials('google_chat_webhook')
-        DOCKER_SERVER = 'your.docker.server.ip' // Replace with your Docker server's IP or hostname
     }
-
+     
     stages {
-        stage("CLEANUP WORKSPACE") {
+        stage('CLEANUP WORKSPACE') {
             steps {
                 cleanWs()
             }
@@ -24,66 +19,70 @@ pipeline {
 
         stage("CHECKOUT GIT REPO") {
             steps {
-                git branch: 'main', url: "${GIT_REPO}"
+                git branch: 'phase1', url: "${GIT_REPO}"
             }
         }
 
-        stage("SEND GOOGLE CHAT NOTIFICATION") {
+        stage('Check Docker') {
             steps {
-                script {
-                    def message = "{\"text\": \"Starting deployment with new image tag: ${IMAGE_TAG}\"}"
-                    sh """
-                        curl -X POST -H 'Content-Type: application/json' -d '${message}' ${GOOGLE_CHAT_WEBHOOK}
-                    """
-                }
+                sh 'echo $PATH'
+                sh 'docker --version'
             }
         }
 
-        stage("SSH TO DOCKER SERVER AND UPDATE IMAGES") {
+        stage("BUILD DOCKER IMAGES") {
             steps {
                 script {
-                    sshagent(credentials: ['docker_server_credentials']) {
-                        sh """
-                        ssh -o StrictHostKeyChecking=no ${DOCKER_SERVER} 'bash -s' << 'EOF'
-                        
-                        # Navigate to project directory
-                        cd ${CONFIG_PROJECT_NAME}
-
-                        # Pull latest changes
-                        git pull origin main
-
-                        # Update backend and frontend image tags in Kubernetes files and docker-compose.yaml
-                        sed -i 's#image: ${DOCKERHUB_USERNAME}/${IMAGE_BE}:.*#image: ${DOCKERHUB_USERNAME}/${IMAGE_BE}:${IMAGE_TAG}#' ./k8s/backend-deployment.yaml
-                        sed -i 's#image: ${DOCKERHUB_USERNAME}/${IMAGE_FE}:.*#image: ${DOCKERHUB_USERNAME}/${IMAGE_FE}:${IMAGE_TAG}#' ./k8s/frontend-deployment.yaml
-                        sed -i 's#image: ${DOCKERHUB_USERNAME}/${IMAGE_BE}:.*#image: ${DOCKERHUB_USERNAME}/${IMAGE_BE}:${IMAGE_TAG}#' docker-compose.yaml
-                        sed -i 's#image: ${DOCKERHUB_USERNAME}/${IMAGE_FE}:.*#image: ${DOCKERHUB_USERNAME}/${IMAGE_FE}:${IMAGE_TAG}#' docker-compose.yaml
-
-                        # Commit and push the changes if any
-                        git add ./k8s/backend-deployment.yaml ./k8s/frontend-deployment.yaml docker-compose.yaml
-                        git commit -m 'Updated deployment files with new image tag ${IMAGE_TAG}' || echo "No changes to commit"
-                        git push origin main
-
-                        # Restart Docker Compose services with no cache
-                        docker-compose down
-                        docker-compose up -d --no-cache
-
-                        # Verify that image tags were updated
-                        echo "Verifying image tags in docker-compose.yaml and Kubernetes files:"
-                        grep 'image:' docker-compose.yaml
-                        grep 'image:' ./k8s/backend-deployment.yaml
-                        grep 'image:' ./k8s/frontend-deployment.yaml
-
-                        EOF
-                        """
+                    // Build backend image
+                    dir('backend') {
+                        sh "docker build --no-cache  -t ${DOCKERHUB_USERNAME}/${IMAGE_BE}:${IMAGE_TAG} -t ${DOCKERHUB_USERNAME}/${IMAGE_BE}:latest ."
+                    }
+                    
+                    // Build frontend image
+                    dir('frontend') {
+                        sh "docker build --no-cache  -t ${DOCKERHUB_USERNAME}/${IMAGE_FE}:${IMAGE_TAG} -t ${DOCKERHUB_USERNAME}/${IMAGE_FE}:latest ."
                     }
                 }
             }
         }
-    }
 
+        stage("PUSH DOCKER IMAGES TO DOCKERHUB") {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'PASSWORD', usernameVariable: 'USER_NAME')]) {
+                    sh 'echo ${PASSWORD} | docker login --username ${USER_NAME} --password-stdin'
+                    
+                    // Push backend image with both tags
+                    sh "docker push ${DOCKERHUB_USERNAME}/${IMAGE_BE}:${IMAGE_TAG}"
+                    sh "docker push ${DOCKERHUB_USERNAME}/${IMAGE_BE}:latest"
+                    
+                    // Push frontend image with both tags
+                    sh "docker push ${DOCKERHUB_USERNAME}/${IMAGE_FE}:${IMAGE_TAG}"
+                    sh "docker push ${DOCKERHUB_USERNAME}/${IMAGE_FE}:latest"
+
+                    sh 'docker logout'
+                }
+            }
+        }
+
+        stage("TRIGGERING THE CONFIG PIPELINE") {
+            steps {
+                // Trigger the config pipeline for backend and frontend
+                build job: CONFIG_PROJECT_NAME, parameters: [string(name: 'IMAGE_TAG', value: IMAGE_TAG)]
+            }
+        }
+                stage("CLEANUP DOCKER CACHES AND IMAGES") {
+            steps {
+                script {
+                    // Remove all Docker images
+                    sh 'docker system prune -af --volumes'
+                }
+            }
+        }
+    }
+    
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo 'Pipeline completed successfully with cleanup'
         }
         failure {
             echo 'Pipeline failed'
